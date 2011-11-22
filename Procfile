@@ -1,1 +1,1 @@
-app: bin/hubot -a campfire -n uqersysbot
+app: node daemon.js --interval 10
