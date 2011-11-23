@@ -1,8 +1,8 @@
 {
-  "name":        "uqersysbot",
+  "name":        "twitter-dm-relay",
   "version":     "0.0.1",
   "author":      "Tim Dettrick",
-  "description": "Simply relay of DMs to status updates.",
+  "description": "Simple relay of DMs to status updates.",
 
   "dependencies": {
     "async": "0.1.15",
