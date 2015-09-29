@@ -1,6 +1,7 @@
 var _ = require('lodash'),
   Twitter = require('twitter'),
   express = require('express'),
+  bodyParser = require('body-parser'),
   app = express(),
   endpointSecret = process.env.ENDPOINT_SECRET;
 
@@ -35,26 +36,44 @@ client.get('account/verify_credentials', function(error, info, response) {
   console.log("Using account: %s (@%s)", info.name, info.screen_name);
 });
 
-function postStatus(q, callback) {
+function uptimeRobotMsg(q) {
   var data = _.extend({}, q, { upOrDown: (q.alertType == "1" ? 'DOWN' : 'UP') });
-  var msg = _.template("<%=monitorFriendlyName%>: <%= upOrDown %> <%=monitorURL%>")(data);
+  return _.template("<%=monitorFriendlyName%>: <%= upOrDown %> <%=monitorURL%>")(data);
+}
+
+function postStatus(msg, callback) {
   client.post('statuses/update', {status: msg}, callback);
 }
 
-app.post('/uptime-robot/:secret', function(req, res) {
-  if (endpointSecret == req.params.secret) {
-    postStatus(req.query, function (error, twitterRes) {
-      if (error) {
-        res.status(500).json(error);
+function secretHandler(f) {
+  return function(req, res) {
+    if (endpointSecret == req.params.secret) {
+      var msg = f(req);
+      if (msg) {
+        postStatus(msg, function (error, twitterRes) {
+          if (error) {
+            res.status(500).json(error);
+          } else {
+            console.log("[%s] %s", twitterRes.created_at, twitterRes.text);
+            res.json(twitterRes);
+          }
+        });
       } else {
-        console.log("[%s] %s", twitterRes.created_at, twitterRes.text);
-        res.json(twitterRes);
+        res.status(400).type('text').send("Unable to obtain message to tweet");
       }
-    });
-  } else {
-    res.status(404).send("");
+    } else {
+      res.status(404).send("");
+    }
   }
-});
+}
+
+app.use(bodyParser.text());
+
+app.post('/raw/:secret', secretHandler(function (req) { return req.body; }));
+
+app.post('/uptime-robot/:secret', secretHandler(function (req) {
+  return uptimeRobotMsg(req.query);
+}));
 
 if (process.env.PORT) {
   app.listen(process.env.PORT);
