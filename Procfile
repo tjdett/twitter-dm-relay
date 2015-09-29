@@ -1,1 +1,1 @@
-app: node daemon.js --interval 10
+app: node daemon.js

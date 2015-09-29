@@ -1,13 +1,11 @@
 {
-  "name":        "twitter-dm-relay",
-  "version":     "0.0.1",
-  "author":      "Tim Dettrick",
-  "description": "Simple relay of DMs to status updates.",
-
+  "name": "uptimerobot-twitter-relay",
+  "version": "0.1.0",
+  "author": "Tim Dettrick",
+  "description": "Simple relay of webhook POSTs to status updates.",
   "dependencies": {
-    "async": "0.1.15",
-    "ntwitter": "0.2.9-2",
-    "optimist": "0.2.8",
-    "wordwrap": "0.0.2"
+    "express": "^4.13.3",
+    "lodash": "^3.10.1",
+    "twitter": "^1.2.5"
   }
 }

@@ -1,81 +1,64 @@
-var argv = require('optimist').argv,
-    async = require('async'),
-    Twitter = require('ntwitter');
+var _ = require('lodash'),
+  Twitter = require('twitter'),
+  express = require('express'),
+  app = express(),
+  endpointSecret = process.env.ENDPOINT_SECRET;
 
-var options = {
-    consumer_key: process.env.TWITTER_KEY,
-    consumer_secret: process.env.TWITTER_SECRET,
-    access_token_key: process.env.TWITTER_TOKEN,
-    access_token_secret: process.env.TWITTER_TOKEN_SECRET
-};
+var twitterOptions = _.reduce({
+    consumer_key: 'TWITTER_KEY',
+    consumer_secret: 'TWITTER_SECRET',
+    access_token_key: 'TWITTER_TOKEN',
+    access_token_secret: 'TWITTER_TOKEN_SECRET'
+  }, function(m,v,k) {
+    if (process.env[v] == null) {
+      console.log("Environment variable %s is not set", v);
+      process.exit(1);
+    }
+    m[k] = process.env[v];
+    return m;
+  }, {});
 
-for (var k in options) {
-  if (options[k] == null) {
-    console.log(k+" is "+options[k]);
+var client = new Twitter(twitterOptions);
+
+if (endpointSecret) {
+  console.log("Endpoint secret is: %s", endpointSecret);
+} else {
+  console.log("Environment variable ENDPOINT_SECRET is not set");
+  process.exit(1);
+}
+
+client.get('account/verify_credentials', function(error, info, response) {
+  if (error) {
+    console.log(error);
     process.exit(1);
   }
+  console.log("Using account: %s (@%s)", info.name, info.screen_name);
+});
+
+function postStatus(q, callback) {
+  var data = _.extend({}, q, { upOrDown: (q.alertType == "1" ? 'DOWN' : 'UP') });
+  var msg = _.template("<%=monitorFriendlyName%>: <%= upOrDown %> <%=monitorURL%>")(data);
+  client.post('statuses/update', {status: msg}, callback);
 }
-    
-var twit = new Twitter(options);
 
-var AsyncJobs = (function() {
-    var obj = {};
-    var lock = false;
-    
-    obj.process = function() {
-      if (lock)
-        return;
-      lock = true;
-      twit.getDirectMessages({}, function(err, messages) {
-          if (messages === undefined)
-            return;
-          async.forEachSeries(messages.reverse(), handleMessage, function(err) {
-              if (err !== undefined) {
-                console.log(err.message || err);
-              }
-              lock = false;
-          });
-      });
-    };
-    
-    var updateStatus = function(directMessage, updateText, callback) {
-      console.log(
-        "Updating status with #"+directMessage.id_str+
-        " from @"+directMessage.sender.screen_name+
-        ": "+updateText);
-      twit.updateStatus(updateText, function(err) {
-        if (err == null) {
-          callback();
-        } else {
-          if (err.toString().indexOf("duplicate") !== -1) {
-            updateStatus(directMessage,
-              updateText+" ["+directMessage.created_at+"]",
-              callback);
-          }
-        }
-      });
-    };
-    
-    var deleteDirectMessage = function(directMessage, callback) {
-      console.log("Deleting #"+directMessage.id_str);
-      twit.destroyDirectMessage(directMessage.id_str, callback);
-    };
-    
-    var handleMessage = function(directMessage, callback) {
-      var asyncDone = function(err, results) {
-        callback(err);
-      };
-      async.series([
-          function(callback) {
-            updateStatus(directMessage, directMessage.text, callback);
-          },
-          function(callback) {
-            deleteDirectMessage(directMessage, callback);
-          }
-      ], asyncDone);
-    };
-    
-    return obj;
-})();
+app.post('/uptime-robot/:secret', function(req, res) {
+  if (endpointSecret == req.params.secret) {
+    postStatus(req.query, function (error, twitterRes) {
+      if (error) {
+        res.status(500).json(error);
+      } else {
+        console.log("[%s] %s", twitterRes.created_at, twitterRes.text);
+        res.json(twitterRes);
+      }
+    });
+  } else {
+    res.status(404).send("");
+  }
+});
 
-setInterval(AsyncJobs.process, argv.interval * 1000 || 60000);
+if (process.env.PORT) {
+  app.listen(process.env.PORT);
+} else {
+  console.log("Environment variable PORT must be set");
+  process.exit(1);
+}
