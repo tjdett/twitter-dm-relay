@@ -1,1 +1,1 @@
-app: node daemon.js
+web: node daemon.js
