@@ -1,5 +1,5 @@
 {
-  "name": "uptimerobot-twitter-relay",
+  "name": "webhook-tweeter",
   "version": "0.1.0",
   "author": "Tim Dettrick",
   "description": "Simple relay of webhook POSTs to status updates.",
